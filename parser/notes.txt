@@ -1,0 +1,57 @@
+Macro Tutorial: LL(1) Parser Generator
+
+Notes:
+- use lists of tokens for simplicity; Token = (list Symbol Any)
+
+1. interpreter:
+
+1a. start with S-expressions
+When is a grammar syntactically well-formed?
+Maybe pre-process a little?
+- wf checks
+- disambiguate ntelem vs telem
+- def list to hash, prod struct
+
+1b. grammar AST:
+(struct grammar (start ntdefs))
+(struct prod (nt index elems action)) ;; for debugging!
+(struct ntelem (nt))
+(struct telem (t))
+
+1c. LL(1) algorithm
+recursive descent parser (use token list for easy peeking?)
+need to precompute First, Follow sets; v0 in parser
+
+1d. stage for First/Follow, then parse
+
+*. Points of dissatisfaction:
+- grammar wf checked at runtime
+- action routine interface is clunky
+- First+Follow computation ...
+
+2. macros
+
+2a. syntax classes, just data language ("eliminate quotes")
+- OLD: parse to data structure, NEW: parse to expr to make data structure
+
+2b. now check wf at compile time
+- two approaches: multi-pass parsing vs HO attributes
+
+2c. revise syntax, make action routines nicer
+
+3. want to compute First/Follow at compile time => compile-time ASTs!
+- NOW we need to analyze grammar structure at compile time
+
+3a. compile-time ASTs
+- separate module, require at both phase 1 and phase 0
+- new approch: attrs are/return compile-time ASTs, translate to exprs later!
+  - tricks with prefab AST structs:
+    - quasiquote and unquote
+    - datum-to-expression
+
+3b. do First/Follow
+
+4. add token information
+
+5. add multiple backends (eg, LR(0)?)
+- split parser-specific ct data from general ct data
