@@ -11,11 +11,11 @@
 ;; A Grammar is (grammar NT (Listof Def))
 (struct grammar (start defs) #:prefab)
 
-;; A Def is (def NT (Listof Prod))
-(struct def (nt prods) #:prefab)
+;; A Definition is (definition NT (Listof Production))
+(struct definition (nt prods) #:prefab)
 
-;; A Prod is (prod NT Nat ElemSequence Action)
-(struct prod (nt index elems action) #:prefab)
+;; A Production is (prod ElemSequence Action)
+(struct production (elems action) #:prefab)
 
 ;; An ElemSequence is (Listof Element)
 ;; An Element is one of
@@ -25,9 +25,7 @@
 (struct telem (t) #:prefab)
 
 ;; A Nonterminal (NT) is a Symbol
-;; A Terminal is one of the following:
-;; - symbol
-;; - character
+;; A Terminal is a Symbol or Character.
 (define (ok-terminal? v) (or (symbol? v) (char? v)))
 
 ;; EOF : Terminal
@@ -66,9 +64,10 @@
     (fixed-point
      (lambda (h)
        (for/fold ([h h]) ([d (in-list defs)])
-         (hash-set h (def-nt d)
-                   (for/or ([p (in-list (def-prods d))])
-                     (elemseq-nullable? (prod-elems p) #:h h)))))
+         (match-define (definition nt prods) d)
+         (hash-set h nt
+                   (for/or ([prod (in-list prods)])
+                     (elemseq-nullable? (production-elems prod) #:h h)))))
      (hash)))
 
   ;; ----------------------------------------
@@ -92,11 +91,12 @@
   (define nt-first-h
     (fixed-point
      (lambda (h)
-       (for/hash ([d (in-list defs)])
-         (values (def-nt d)
-                 (apply set-union (hash-ref h (def-nt d) null)
-                        (for/list ([p (in-list (def-prods d))])
-                          (elemseq-first (prod-elems p) #:h h))))))
+       (for/hash ([def (in-list defs)])
+         (match-define (definition nt prods) def)
+         (values nt
+                 (apply set-union (hash-ref h nt null)
+                        (for/list ([prod (in-list prods)])
+                          (elemseq-first (production-elems prod) #:h h))))))
      (hash)))
 
   ;; ----------------------------------------
@@ -109,9 +109,9 @@
   (define nt-follow-h
     (fixed-point
      (lambda (h)
-       (for*/fold ([h h]) ([d (in-list defs)] [pr (in-list (def-prods d))])
-         (for/fold ([h h] [follows-this (hash-ref h (def-nt d) null)] #:result h)
-                   ([elem (in-list (reverse (prod-elems pr)))])
+       (for*/fold ([h h]) ([def (in-list defs)] [prod (in-list (definition-prods def))])
+         (for/fold ([h h] [follows-this (hash-ref h (definition-nt def) null)] #:result h)
+                   ([elem (in-list (reverse (production-elems prod)))])
            (match elem
              [(ntelem nt)
               (values (hash-set h nt (set-union (hash-ref h nt null) follows-this))
@@ -127,25 +127,25 @@
   ;; ----------------------------------------
   ;; LL1 Table
 
-  ;; def->table-entry : NTDef -> Hash[Terminal => (NonemptyListof Prod)]
-  (define (def->table-entry d)
-    (match-define (def nt rhss) d)
-    (for/fold ([h (hash)]) ([p (in-list rhss)])
-      (match-define (prod nt index elems action) p)
+  ;; definition->table-entry : NTDef -> Hash[Terminal => (NonemptyListof Prod)]
+  (define (definition->table-entry def)
+    (match-define (definition nt prods) def)
+    (for/fold ([h (hash)]) ([prod (in-list prods)])
+      (match-define (production elems action) prod)
       (define ts (set-union (elemseq-first elems)
                             (if (elemseq-nullable? elems) (nt-follow nt) null)))
       (for/fold ([h h]) ([t (in-list ts)])
-        (hash-cons h t p))))
+        (hash-cons h t prod))))
 
-  (for/fold ([h (hash)]) ([d (in-list defs)])
-    (hash-set h (def-nt d) (def->table-entry d))))
+  (for/fold ([h (hash)]) ([def (in-list defs)])
+    (hash-set h (definition-nt def) (definition->table-entry def))))
 
 ;; table-conflicts : LL1-Table -> (Listof ???)
 (define (table-check-conflicts table)
   (for*/list ([(nt entry) (in-hash table)]
               [(t prods) (in-hash entry)]
               #:when (> (length prods) 1))
-    (list nt t (map prod-index prods))))
+    (list nt t)))
 
 ;; fixed-point : (X -> X) X -> X
 (define (fixed-point refine init-val)
@@ -193,7 +193,7 @@
   ;; parse-nt : NT TokenStream -> (values Any TokenStream)
   (define (parse-nt nt toks)
     (cond [(hash-ref (hash-ref table nt) (token-t (tokens-first toks)) #f)
-           => (lambda (prs) (parse-prod (car prs) toks))]
+           => (lambda (prs) (parse-production (car prs) toks))]
           [else (error 'll1-parse "parse error\n  parsing NT: ~e\n  next token: ~e"
                        nt (tokens-first toks))]))
 
@@ -208,9 +208,9 @@
            (values (token-v next-tok) (tokens-rest toks))
            (error 'll1-parse "parse error\n  expected: ~e\n  next token: ~e" t next-tok))]))
 
-  ;; parse-prod : Prod TokenStream -> (values Any TokenStream)
-  (define (parse-prod p toks)
-    (match-define (prod nt index elems action) p)
+  ;; parse-production : Production TokenStream -> (values Any TokenStream)
+  (define (parse-production prod toks)
+    (match-define (production elems action) prod)
     (define-values (r-results toks*)
       (for/fold ([r-results null] [toks toks]) ([e (in-list elems)])
         (define-values (result toks*) (parse-elem e toks))

@@ -9,17 +9,15 @@
 (define arith-grammar
   (grammar
    'Expr
-   (list (def 'Expr
-           (list (prod 'Expr 0
-                       (list (telem 'number))
-                       (lambda (a) a))
-                 (prod 'Expr 1
-                       (list (telem 'lparen)
-                             (ntelem 'Expr)
-                             (telem '+)
-                             (ntelem 'Expr)
-                             (telem 'rparen))
-                       (lambda (lp e1 pl e2 rp) (list 'add e1 e2))))))))
+   (list (definition 'Expr
+           (list (production (list (telem 'number))
+                             (lambda (a) a))
+                 (production (list (telem 'lparen)
+                                   (ntelem 'Expr)
+                                   (telem '+)
+                                   (ntelem 'Expr)
+                                   (telem 'rparen))
+                             (lambda (lp e1 pl e2 rp) (list 'add e1 e2))))))))
 
 (define arith-table (make-ll1-table arith-grammar))
 
@@ -43,29 +41,24 @@
 (define brackets-grammar
   (grammar
    'S
-   (list (def 'S
-           (list (prod 'S 0
-                       (list (telem 'lparen) (ntelem 'X))
-                       (lambda (lp x) (list 'S 0 x)))
-                 (prod 'S 1
-                       (list (ntelem 'E) (telem 'rbracket))
-                       (lambda (e rb) (list 'S 1 e)))
-                 (prod 'S 2
-                       (list (ntelem 'F) (telem 'rparen))
-                       (lambda (f rp) (list 'S 2 f)))))
-         (def 'X
-           (list (prod 'X 0
-                       (list (ntelem 'E) (telem 'rparen))
-                       (lambda (e rb) (list 'X 0 e)))
-                 (prod 'X 1
-                       (list (ntelem 'F) (telem 'rbracket))
-                       (lambda (f rb) (list 'X 1 f)))))
-         (def 'E
-           (list (prod 'E 0 (list (ntelem 'A)) (lambda (a) (list 'E 0 a)))))
-         (def 'F
-           (list (prod 'F 0 (list (ntelem 'A)) (lambda (a) (list 'F 0 a)))))
-         (def 'A
-           (list (prod 'A 0 (list) (lambda () (list 'A 0))))))))
+   (list (definition 'S
+           (list (production (list (telem 'lparen) (ntelem 'X))
+                             (lambda (lp x) (list 'S 0 x)))
+                 (production (list (ntelem 'E) (telem 'rbracket))
+                             (lambda (e rb) (list 'S 1 e)))
+                 (production (list (ntelem 'F) (telem 'rparen))
+                             (lambda (f rp) (list 'S 2 f)))))
+         (definition 'X
+           (list (production (list (ntelem 'E) (telem 'rparen))
+                             (lambda (e rb) (list 'X 0 e)))
+                 (production (list (ntelem 'F) (telem 'rbracket))
+                             (lambda (f rb) (list 'X 1 f)))))
+         (definition 'E
+           (list (production (list (ntelem 'A)) (lambda (a) (list 'E 0 a)))))
+         (definition 'F
+           (list (production (list (ntelem 'A)) (lambda (a) (list 'F 0 a)))))
+         (definition 'A
+           (list (production (list) (lambda () (list 'A 0))))))))
 
 (define brackets-table (make-ll1-table brackets-grammar))
 
