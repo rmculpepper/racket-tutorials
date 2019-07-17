@@ -1,6 +1,7 @@
 #lang racket/base
 (require racket/pretty "parser.rkt")
 
+;;## BEGIN CODE test-arith
 ;; A basic LL(1) grammar:
 
 ;; Expr ::= number
@@ -17,12 +18,14 @@
                                    (telem '+)
                                    (ntelem 'Expr)
                                    (telem 'rparen))
-                             (lambda (lp e1 pl e2 rp) (list 'add e1 e2))))))))
+                             (lambda (lp e1 pl e2 rp)
+                               (list 'add e1 e2))))))))
 
 (define arith-table (make-ll1-table arith-grammar))
 
 (define arith-s1 '(lparen (number . 5) + (number . 12) rparen))
 (ll1-parse 'Expr arith-table arith-s1)
+;;## END CODE test-arith
 
 ;; ----
 

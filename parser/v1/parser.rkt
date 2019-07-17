@@ -8,13 +8,16 @@
 
 ;; ============================================================
 
+;;## BEGIN CODE grammar types
 ;; A Grammar is (grammar NT (Listof Def))
 (struct grammar (start defs) #:prefab)
 
 ;; A Definition is (definition NT (Listof Production))
 (struct definition (nt prods) #:prefab)
+;;## END CODE grammar types
 
-;; A Production is (prod ElemSequence Action)
+;;## BEGIN CODE production types
+;; A Production is (production ElemSequence Action)
 (struct production (elems action) #:prefab)
 
 ;; An ElemSequence is (Listof Element)
@@ -25,24 +28,28 @@
 (struct telem (t) #:prefab)
 
 ;; A Nonterminal (NT) is a Symbol
-;; A Terminal is a Symbol or Character.
-(define (ok-terminal? v) (or (symbol? v) (char? v)))
+;; A Terminal is a Symbol.
+;;## END CODE production types
 
 ;; EOF : Terminal
 (define EOF (string->unreadable-symbol "EOF"))
 
 ;; ============================================================
 
+;;## BEGIN CODE LL1 table
 ;; An LL1-Table is Hash[NT => LL1-Entry],
-;; where LL1-Entry is Hash[Terminal => (NonemptyListof Prod)]
+;; where LL1-Entry is Hash[Terminal => (NonemptyListof Production)]
 
 ;; The table maps nonterminals and terminals to a nonempty list of
 ;; productions. If the table does not have an entry, there is a parse
 ;; error. If an entry contains more than one production for a given
 ;; nonterminal and terminal, the grammar is not LL(1) (but the table
 ;; can still be used by a nondeterministic parser, for example).
+;;## END CODE LL1 table
 
+;;## BEGIN CODE make-ll1-table
 ;; make-ll1-table : Grammar -> LL1-Table
+;;## END CODE make-ll1-table
 (define (make-ll1-table g)
   (match-define (grammar start defs) g)
 
@@ -158,26 +165,27 @@
 
 ;; ============================================================
 
-;; A TokenValue is one of
+;;## BEGIN CODE token
+;; A Token is one of
 ;; - (cons Terminal Any)   -- token with payload
-;; - Terminal              -- token with self as payload; eg, #\x equiv to (cons #\x #\x)
+;; - Terminal              -- token with self as payload
 
 ;; token : Terminal [Any] -> TokenValue
 (define (token t [v t]) (if (eqv? t v) t (cons t v)))
 
-;; token-t : TokenValue -> Terminal
+;; token-t : Token -> Terminal
 (define (token-t tok)
-  (match tok [(cons t _) t] [(? ok-terminal? t) t]))
+  (match tok [(cons t _) t] [(? symbol? t) t]))
 
-;; token-v : TokenValue -> Any
+;; token-v : Token -> Any
 (define (token-v tok)
-  (match tok [(cons _ v) v] [(? ok-terminal? t) #f]))
+  (match tok [(cons _ v) v] [(? symbol? t) #f]))
 
-;; EOF-token : TokenValue
+;; EOF-token : Token
 (define EOF-token EOF)
+;;## END CODE token
 
-;; ============================================================
-
+;;## BEGIN CODE tokenstream
 ;; A TokenStream is (Listof Token), but we treat it as being followed by
 ;; an infinite stream of EOF tokens.
 
@@ -186,6 +194,17 @@
 
 ;; tokens-rest : TokenStream -> TokenStream
 (define (tokens-rest toks) (if (pair? toks) (cdr toks) null))
+;;## END CODE tokenstream
+
+;; ============================================================
+
+;;## BEGIN CODE parser
+;; ll1-parse : NT LL1-Table TokenStream -> Any
+;;## END CODE parser
+(define (ll1-parse start table toks)
+  (define-values (result toks*) (ll1-parse* start table toks))
+  (unless (null? toks*) (error 'll1-parse "tokens left over after parsing"))
+  result)
 
 ;; ll1-parse* : NT LL1-Table TokenStream -> (values Any TokenStream)
 (define (ll1-parse* start table toks)
@@ -218,9 +237,3 @@
     (values (apply action (reverse r-results)) toks*))
 
   (parse-nt start toks))
-
-;; ll1-parse* : NT LL1-Table TokenStream -> (values Any TokenStream)
-(define (ll1-parse start table toks)
-  (define-values (result toks*) (ll1-parse* start table toks))
-  (unless (null? toks*) (error 'll1-parse "tokens left over after parsing"))
-  result)
